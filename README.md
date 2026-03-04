@@ -19,7 +19,7 @@ Depending on the type of spell, the addon will calculate and inject the followin
 
 ## Usage
 
-Simply hover over any spell in your spellbook or on your action bars that heals damage, deals direct damage, or applies a DoT effect. A new line will be added to the bottom of the tooltip displaying the calculated DPS.
+Simply hover over any REAL spell in your spellbook or on your action bars that deals direct damage, or applies a DoT effect. One or more new lines will be added to the bottom of the tooltip displaying the calculated DPS.
 
 ![Preview](https://placeholder.com) <!-- Replace with screenshot later if desired -->
 
