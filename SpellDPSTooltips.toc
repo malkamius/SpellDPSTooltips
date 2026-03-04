@@ -1,0 +1,8 @@
+## Interface: 20505
+## Title: Spell DPS Tooltips
+## Notes: Adds DPS calculations to Damage over Time spell tooltips.
+## IconTexture: Interface\AddOns\SpellDPSTooltips\SpellDPSTooltipsLogo.png
+## Author: Gemini
+## Version: 1.0
+
+SpellDPSTooltips.lua
