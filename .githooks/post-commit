@@ -1,0 +1,15 @@
+#!/bin/sh
+# .githooks/post-commit
+# Runs automatically after every `git commit` on your local machine.
+# Deploys the addon to the WoW AddOns folder and creates a versioned zip.
+#
+# To activate these hooks, run once in the repo root:
+#   git config core.hooksPath .githooks
+
+cd "$(git rev-parse --show-toplevel)"
+
+echo "[post-commit] Deploying addon to WoW AddOns folder..."
+powershell.exe -ExecutionPolicy Bypass -File deploy.ps1
+
+echo "[post-commit] Creating versioned CurseForge zip..."
+powershell.exe -ExecutionPolicy Bypass -File package.ps1

@@ -1,0 +1,33 @@
+# .curseignore
+# Patterns listed here are excluded from the CurseForge package and local
+# addon deploy. Syntax is identical to .gitignore. Files are still tracked
+# in git — this only affects what gets distributed to players.
+
+# Dev tooling & workflow
+.antigravity/
+.github/
+.githooks/
+.vscode/
+*.ps1
+export_commits.ps1
+wow_paths.json
+.curseignore
+
+# Scratch / generated files
+commit_messages.txt
+NEXT_COMMIT.txt
+NEXT_CHANGELOG.md
+changelog.txt
+
+# Repo-only docs
+*.md
+!/README.md
+
+# Legacy folders
+GearEquipperEqManager/
+
+# Third-party bundled addons (present for dev, not for distribution)
+AdiBags/
+AdiBags_Config/
+Baganator/
+AdiBags/README.md
