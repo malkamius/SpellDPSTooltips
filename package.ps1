@@ -28,55 +28,74 @@ if ($LASTEXITCODE -ne 0 -or -not $hash) {
 }
 Write-Host "Commit Hash: $hash" -ForegroundColor Yellow
 
-# 4. Resolve WoW AddOns path
+# 4. Resolve WoW AddOns path(s)
 $wowPathsFile = Join-Path $RepoRoot "wow_paths.json"
-$wowAddonsPath = $null
+$targetAddonPaths = @()
 
 if (Test-Path $wowPathsFile) {
-    $config = Get-Content $wowPathsFile -Raw | ConvertFrom-Json
-    if ($config.wowAddonPath -and (Test-Path $config.wowAddonPath)) {
-        $wowAddonsPath = $config.wowAddonPath
+    try {
+        $config = Get-Content $wowPathsFile -Raw | ConvertFrom-Json
+        if ($config.wowAddonPath) {
+            foreach ($p in @($config.wowAddonPath)) {
+                if (Test-Path $p) {
+                    $targetAddonPaths += $p
+                }
+            }
+        }
+    } catch {
+        Write-Host "Could not parse wow_paths.json: $_" -ForegroundColor Yellow
     }
 }
 
-if (-not $wowAddonsPath) {
-    $defaultPath = "C:\Program Files (x86)\World of Warcraft\_anniversary_\Interface\AddOns"
-    if (Test-Path $defaultPath) {
-        $wowAddonsPath = $defaultPath
+if ($targetAddonPaths.Count -eq 0) {
+    $fallbackPaths = @(
+        "G:\Battle.net\World of Warcraft\_classic_beta_\Interface\AddOns",
+        "G:\Battle.net\World of Warcraft\_anniversary_\Interface\AddOns",
+        "C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns",
+        "C:\Program Files (x86)\World of Warcraft\_anniversary_\Interface\AddOns"
+    )
+    foreach ($p in $fallbackPaths) {
+        if (Test-Path $p) {
+            $targetAddonPaths += $p
+            break
+        }
     }
 }
 
-if (-not $wowAddonsPath) {
+if ($targetAddonPaths.Count -eq 0) {
     Write-Host "Error: WoW AddOns folder not found. Check wow_paths.json." -ForegroundColor Red
     exit 1
 }
-Write-Host "Target AddOns Folder: $wowAddonsPath" -ForegroundColor Cyan
 
-# 5. Cleanup Stale Zips
-Write-Host "Cleaning up stale zips..." -ForegroundColor Gray
-Get-ChildItem -Path $wowAddonsPath -Filter "$addonName-*.zip" | Remove-Item -Force -ErrorAction SilentlyContinue
+foreach ($wowAddonsPath in $targetAddonPaths) {
+    Write-Host "Target AddOns Folder: $wowAddonsPath" -ForegroundColor Cyan
 
-# 6. Verify Deployed Folder exists
-$addonSource = Join-Path $wowAddonsPath $addonName
-if (-not (Test-Path $addonSource)) {
-    Write-Host "Error: Deployed folder '$addonSource' not found. Run deploy.ps1 first." -ForegroundColor Red
-    exit 1
+    # 5. Cleanup Stale Zips
+    Write-Host "Cleaning up stale zips..." -ForegroundColor Gray
+    Get-ChildItem -Path $wowAddonsPath -Filter "$addonName-*.zip" | Remove-Item -Force -ErrorAction SilentlyContinue
+
+    # 6. Verify Deployed Folder exists
+    $addonSource = Join-Path $wowAddonsPath $addonName
+    if (-not (Test-Path $addonSource)) {
+        Write-Host "Error: Deployed folder '$addonSource' not found. Run deploy.ps1 first." -ForegroundColor Red
+        continue
+    }
+
+    # 7. Create Zip
+    $zipPath = Join-Path $wowAddonsPath "$addonName-$hash.zip"
+    Write-Host "Creating Zip: $zipPath" -ForegroundColor Green
+
+    # Stage to Temp to ensure clean structure <AddonName>/<files>
+    $tempStaging = Join-Path $env:TEMP "eq_pkg_$addonName"
+    if (Test-Path $tempStaging) { Remove-Item $tempStaging -Recurse -Force }
+    New-Item -ItemType Directory -Path $tempStaging | Out-Null
+
+    $stagingAddon = Join-Path $tempStaging $addonName
+    Copy-Item -Path $addonSource -Destination $stagingAddon -Recurse -Force
+
+    Compress-Archive -Path "$stagingAddon" -DestinationPath $zipPath -CompressionLevel Fastest -Force
+
+    Remove-Item $tempStaging -Recurse -Force
 }
-
-# 7. Create Zip
-$zipPath = Join-Path $wowAddonsPath "$addonName-$hash.zip"
-Write-Host "Creating Zip: $zipPath" -ForegroundColor Green
-
-# Stage to Temp to ensure clean structure <AddonName>/<files>
-$tempStaging = Join-Path $env:TEMP "eq_pkg_$addonName"
-if (Test-Path $tempStaging) { Remove-Item $tempStaging -Recurse -Force }
-New-Item -ItemType Directory -Path $tempStaging | Out-Null
-
-$stagingAddon = Join-Path $tempStaging $addonName
-Copy-Item -Path $addonSource -Destination $stagingAddon -Recurse -Force
-
-Compress-Archive -Path "$stagingAddon" -DestinationPath $zipPath -CompressionLevel Fastest -Force
-
-Remove-Item $tempStaging -Recurse -Force
 
 Write-Host "✅ Packaging Complete!" -ForegroundColor Green

@@ -1,6 +1,6 @@
 # Spell DPS Tooltips
 
-A lightweight World of Warcraft Classic addon (developed for the 20th Anniversary) that calculates and displays the Damage Per Second (DPS) for both Direct Damage and Damage over Time (DoT) spells entirely through their in-game tooltips.
+A lightweight World of Warcraft addon (supporting World of Warcraft: Forever, Classic Era, and Anniversary) that calculates and displays the Damage Per Second (DPS) for both Direct Damage and Damage over Time (DoT) spells entirely through their in-game tooltips.
 
 ## Calculated Metrics
 
@@ -14,13 +14,15 @@ Depending on the type of spell, the addon will calculate and inject the followin
 ## Installation
 
 1. Download the latest release from the repository.
-2. Extract the `SpellDPSTooltips` folder to your WoW directory: `_anniversary_\Interface\AddOns\SpellDPSTooltips` (or the appropriate version directory in `_classic_era_`).
+2. Extract the `SpellDPSTooltips` folder to your WoW directory:
+   - **Forever WoW:** `_classic_beta_\Interface\AddOns\SpellDPSTooltips`
+   - **Anniversary / Classic Era:** `_anniversary_\Interface\AddOns\SpellDPSTooltips` (or `_classic_era_\Interface\AddOns\SpellDPSTooltips`)
 3. Launch the game and enable "Spell DPS Tooltips" in your addons list.
 
 ## Usage
 
-Simply hover over any REAL spell in your spellbook or on your action bars that deals direct damage, or applies a DoT effect. One or more new lines will be added to the bottom of the tooltip displaying the calculated DPS.
+Simply hover over any spell in your spellbook or on your action bars that deals direct damage, or applies a DoT effect. One or more new lines will be added to the bottom of the tooltip displaying the calculated DPS.
 
 ## Contributing
 
-Pull requests and issues are welcome! If you find any spells whose tooltips use weird phrasing that isn't parsed correctly by the addon, feel free to open an issue or submit a fix for the regex pattern!
+Pull requests and issues are welcome! If you find any spells whose tooltips use phrasing that isn't parsed correctly by the addon, feel free to open an issue or submit a fix for the regex pattern!
