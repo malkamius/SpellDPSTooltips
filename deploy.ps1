@@ -43,8 +43,10 @@ if (Test-Path $wowPathsFile) {
 
 if ($targetAddonPaths.Count -eq 0) {
     $fallbackPaths = @(
+        "G:\Battle.net\World of Warcraft\_forever_\Interface\AddOns",
         "G:\Battle.net\World of Warcraft\_classic_beta_\Interface\AddOns",
         "G:\Battle.net\World of Warcraft\_anniversary_\Interface\AddOns",
+        "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns",
         "C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns",
         "C:\Program Files (x86)\World of Warcraft\_anniversary_\Interface\AddOns"
     )
