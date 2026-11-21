@@ -1,0 +1,100 @@
+name: Release Addon
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate .pkgmeta from .curseignore
+        run: |
+          python3 - <<'EOF'
+          import fnmatch
+          import os
+          import pathlib
+
+          root = pathlib.Path(".")
+          toc_files = sorted(root.glob("*.toc"), key=lambda p: (len(p.stem), p.stem))
+          repo_name = root.resolve().name
+          addon_name = next((t.stem for t in toc_files if t.stem.lower() == repo_name.lower()), None)
+          if not addon_name:
+              addon_name = toc_files[0].stem if toc_files else repo_name
+
+          # Collect all workspace paths (excluding .git)
+          all_files = []
+          for dirpath, dirnames, filenames in os.walk("."):
+              dirnames[:] = [d for d in dirnames if d != ".git"]
+              rel_dir = os.path.relpath(dirpath, ".").replace("\\", "/")
+              for f in filenames:
+                  rel_file = f if rel_dir == "." else f"{rel_dir}/{f}"
+                  all_files.append(rel_file)
+
+          # Parse .curseignore using gitignore-style ordered rules
+          rules = []
+          curseignore = root / ".curseignore"
+          if curseignore.exists():
+              for raw in curseignore.read_text(encoding="utf-8").splitlines():
+                  line = raw.strip()
+                  if not line or line.startswith("#"):
+                      continue
+                  negated = line.startswith("!")
+                  if negated:
+                      line = line[1:].strip()
+                  is_dir = line.endswith("/")
+                  pattern = line.rstrip("/").lstrip("/")
+                  rules.append((negated, is_dir, pattern))
+
+          def matches(path, pattern, rule_is_dir):
+              if rule_is_dir:
+                  parts = path.split("/")
+                  return any(fnmatch.fnmatch(p, pattern) or fnmatch.fnmatch("/".join(parts[:i+1]), pattern) for i, p in enumerate(parts[:-1]))
+              if "/" in pattern:
+                  return fnmatch.fnmatch(path, pattern)
+              return fnmatch.fnmatch(os.path.basename(path), pattern) or any(fnmatch.fnmatch(part, pattern) for part in path.split("/")[:-1])
+
+          ignored_files = []
+          for f in sorted(all_files):
+              ignored = False
+              for negated, rule_is_dir, pattern in rules:
+                  if matches(f, pattern, rule_is_dir):
+                      ignored = not negated
+              if ignored:
+                  ignored_files.append(f)
+
+          lines = [f"package-as: {addon_name}", ""]
+          if (root / "NEXT_CHANGELOG.md").exists() and (root / "NEXT_CHANGELOG.md").read_text(encoding="utf-8").strip():
+              lines.extend([
+                  "manual-changelog:",
+                  "  filename: NEXT_CHANGELOG.md",
+                  "  markup-type: markdown",
+                  "",
+              ])
+
+          if ignored_files:
+              lines.append("ignore:")
+              for item in ignored_files:
+                  lines.append(f"  - {item}")
+              lines.append("  - .pkgmeta")
+
+          pathlib.Path(".pkgmeta").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print("Generated .pkgmeta:")
+          print(pathlib.Path(".pkgmeta").read_text(encoding="utf-8"))
+          EOF
+
+      - name: Package and Release to GitHub & CurseForge
+        uses: BigWigsMods/packager@v2
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
