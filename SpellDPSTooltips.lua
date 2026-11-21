@@ -1,20 +1,54 @@
+local issecretvalue = _G.issecretvalue
+local issecrettable = _G.issecrettable
+local canaccessvalue = _G.canaccessvalue
+
+local function IsSecret(val)
+    if issecretvalue then
+        local ok, secret = pcall(issecretvalue, val)
+        if ok and secret then return true end
+    end
+    if issecrettable then
+        local ok, secret = pcall(issecrettable, val)
+        if ok and secret then return true end
+    end
+    if canaccessvalue then
+        local ok, canAccess = pcall(canaccessvalue, val)
+        if ok and not canAccess then return true end
+    end
+    return false
+end
+
+local function IsSafeValue(val)
+    if val == nil then return false end
+    if IsSecret(val) then return false end
+    return true
+end
+
+local function IsSafeString(val)
+    if not IsSafeValue(val) then return false end
+    local ok, isStr = pcall(function()
+        return type(val) == "string" and string.find(val, "") ~= nil
+    end)
+    return (ok and isStr) == true
+end
+
 local function CleanTooltipText(text)
-    if not text then return "" end
+    if not IsSafeString(text) then return "" end
     -- Remove texture markup |T...|t
-    text = text:gsub("|T.-|t", "")
+    text = string.gsub(text, "|T.-|t", "")
     -- Remove atlas markup |A...|a
-    text = text:gsub("|A.-|a", "")
+    text = string.gsub(text, "|A.-|a", "")
     -- Remove hex color codes |cffffffff or |cffffff
-    text = text:gsub("|c%x%x%x%x%x%x%x%x", "")
-    text = text:gsub("|c%x%x%x%x%x%x", "")
+    text = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "")
+    text = string.gsub(text, "|c%x%x%x%x%x%x", "")
     -- Remove named color codes |cn...:
-    text = text:gsub("|cn[%a_]+:", "")
+    text = string.gsub(text, "|cn[%a_]+:", "")
     -- Remove closing tag |r
-    text = text:gsub("|r", "")
+    text = string.gsub(text, "|r", "")
     -- Remove hyperlink tags |H...|h and |h
-    text = text:gsub("|H.-|h", ""):gsub("|h", "")
+    text = string.gsub(string.gsub(text, "|H.-|h", ""), "|h", "")
     -- Replace non-breaking spaces (UTF-8 \194\160) with standard space
-    text = text:gsub("\194\160", " ")
+    text = string.gsub(text, "\194\160", " ")
     return text
 end
 
@@ -172,16 +206,22 @@ local function GetTooltipText(tooltip, data)
     local fullText = ""
 
     -- 1. Modern TooltipData lines if provided by TooltipDataProcessor
-    if data and data.lines and #data.lines > 0 then
+    if IsSafeValue(data) and IsSafeValue(data.lines) then
         -- Start at 2 to skip the spell's title (line 1)
         for i = 2, #data.lines do
             local lineData = data.lines[i]
-            if lineData then
-                if lineData.leftText and lineData.leftText ~= "" then
-                    fullText = fullText .. " " .. CleanTooltipText(lineData.leftText)
+            if IsSafeValue(lineData) then
+                if IsSafeString(lineData.leftText) then
+                    local cleaned = CleanTooltipText(lineData.leftText)
+                    if cleaned ~= "" then
+                        fullText = fullText .. " " .. cleaned
+                    end
                 end
-                if lineData.rightText and lineData.rightText ~= "" then
-                    fullText = fullText .. " " .. CleanTooltipText(lineData.rightText)
+                if IsSafeString(lineData.rightText) then
+                    local cleaned = CleanTooltipText(lineData.rightText)
+                    if cleaned ~= "" then
+                        fullText = fullText .. " " .. cleaned
+                    end
                 end
             end
         end
@@ -189,22 +229,34 @@ local function GetTooltipText(tooltip, data)
 
     -- 2. Fallback to scanning FontStrings on the tooltip frame
     if fullText == "" and tooltip and tooltip.GetName then
-        local tooltipName = tooltip:GetName()
-        if tooltipName then
-            local numLines = tooltip:NumLines() or 0
+        local okName, tooltipName = pcall(tooltip.GetName, tooltip)
+        if okName and IsSafeString(tooltipName) then
+            local numLines = 0
+            if tooltip.NumLines then
+                local okLines, lines = pcall(tooltip.NumLines, tooltip)
+                if okLines and IsSafeValue(lines) and type(lines) == "number" then
+                    numLines = lines
+                end
+            end
             for i = 2, numLines do
                 local leftFs = _G[tooltipName .. "TextLeft" .. i]
-                if leftFs then
-                    local text = leftFs:GetText()
-                    if text and text ~= "" then
-                        fullText = fullText .. " " .. CleanTooltipText(text)
+                if leftFs and leftFs.GetText then
+                    local okText, text = pcall(leftFs.GetText, leftFs)
+                    if okText and IsSafeString(text) then
+                        local cleaned = CleanTooltipText(text)
+                        if cleaned ~= "" then
+                            fullText = fullText .. " " .. cleaned
+                        end
                     end
                 end
                 local rightFs = _G[tooltipName .. "TextRight" .. i]
-                if rightFs then
-                    local text = rightFs:GetText()
-                    if text and text ~= "" then
-                        fullText = fullText .. " " .. CleanTooltipText(text)
+                if rightFs and rightFs.GetText then
+                    local okText, text = pcall(rightFs.GetText, rightFs)
+                    if okText and IsSafeString(text) then
+                        local cleaned = CleanTooltipText(text)
+                        if cleaned ~= "" then
+                            fullText = fullText .. " " .. cleaned
+                        end
                     end
                 end
             end
@@ -215,25 +267,47 @@ local function GetTooltipText(tooltip, data)
 end
 
 local function HasDpsLines(tooltip, data)
-    if data and data.lines then
+    if IsSafeValue(data) and IsSafeValue(data.lines) then
         for _, lineData in ipairs(data.lines) do
-            local lt = lineData.leftText
-            if lt and (lt:find("Direct DPS:") or lt:find("DoT DPS:") or lt:find("Est%. Total Damage:")) then
-                return true
+            if IsSafeValue(lineData) then
+                local lt = lineData.leftText
+                if IsSafeString(lt) then
+                    local ok, found = pcall(function()
+                        return string.find(lt, "Direct DPS:")
+                            or string.find(lt, "DoT DPS:")
+                            or string.find(lt, "Est%. Total Damage:")
+                    end)
+                    if ok and found then
+                        return true
+                    end
+                end
             end
         end
     end
 
     if tooltip and tooltip.GetName then
-        local tooltipName = tooltip:GetName()
-        if tooltipName then
-            local numLines = tooltip:NumLines() or 0
+        local okName, tooltipName = pcall(tooltip.GetName, tooltip)
+        if okName and IsSafeString(tooltipName) then
+            local numLines = 0
+            if tooltip.NumLines then
+                local okLines, lines = pcall(tooltip.NumLines, tooltip)
+                if okLines and IsSafeValue(lines) and type(lines) == "number" then
+                    numLines = lines
+                end
+            end
             for i = 1, numLines do
                 local leftFs = _G[tooltipName .. "TextLeft" .. i]
-                if leftFs then
-                    local text = leftFs:GetText()
-                    if text and (text:find("Direct DPS:") or text:find("DoT DPS:") or text:find("Est%. Total Damage:")) then
-                        return true
+                if leftFs and leftFs.GetText then
+                    local okText, text = pcall(leftFs.GetText, leftFs)
+                    if okText and IsSafeString(text) then
+                        local ok, found = pcall(function()
+                            return string.find(text, "Direct DPS:")
+                                or string.find(text, "DoT DPS:")
+                                or string.find(text, "Est%. Total Damage:")
+                        end)
+                        if ok and found then
+                            return true
+                        end
                     end
                 end
             end
@@ -243,18 +317,28 @@ local function HasDpsLines(tooltip, data)
     return false
 end
 
-local function ProcessSpellTooltip(tooltip, data)
+local function SafeProcessSpellTooltip(tooltip, data)
     if not tooltip then return end
     if tooltip.IsForbidden and tooltip:IsForbidden() then return end
 
-    local spellID = (data and data.id)
+    local spellID = nil
+    if IsSafeValue(data) and IsSafeValue(data.id) then
+        spellID = data.id
+    end
     if not spellID and tooltip.GetSpell then
-        local _, sid = tooltip:GetSpell()
-        spellID = sid
+        local ok, _, sid = pcall(tooltip.GetSpell, tooltip)
+        if ok and IsSafeValue(sid) then
+            spellID = sid
+        end
     end
 
     -- Verify it's a spell tooltip
-    if not spellID and not (data and Enum and Enum.TooltipDataType and data.type == Enum.TooltipDataType.Spell) then
+    local isSpellType = false
+    if IsSafeValue(data) and IsSafeValue(data.type) and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Spell then
+        isSpellType = (data.type == Enum.TooltipDataType.Spell)
+    end
+
+    if not spellID and not isSpellType then
         return
     end
 
@@ -264,7 +348,7 @@ local function ProcessSpellTooltip(tooltip, data)
     end
 
     local fullText = GetTooltipText(tooltip, data)
-    if not fullText or fullText == "" then
+    if not IsSafeString(fullText) or fullText == "" then
         return
     end
 
@@ -320,6 +404,10 @@ local function ProcessSpellTooltip(tooltip, data)
     if not data and (directDps or dotDps or hasTotal) then
         tooltip:Show()
     end
+end
+
+local function ProcessSpellTooltip(tooltip, data)
+    pcall(SafeProcessSpellTooltip, tooltip, data)
 end
 
 -- Registration: Support modern TooltipDataProcessor (WoW Forever / 10.0+) and fallback to OnTooltipSetSpell (Classic)

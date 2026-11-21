@@ -3,6 +3,6 @@
 ## Notes: Adds DPS calculations to Damage over Time spell tooltips.
 ## IconTexture: Interface\AddOns\SpellDPSTooltips\SpellDPSTooltipsLogo.png
 ## Author: Gemini
-## Version: 1.1.0
+## Version: 1.1.1
 
 SpellDPSTooltips.lua

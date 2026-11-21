@@ -7,8 +7,12 @@ $RepoRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Get-Location }
 $RepoRoot = (Get-Item $RepoRoot).FullName
 Write-Host "Repo Root: $RepoRoot" -ForegroundColor Cyan
 
-# 2. Find .toc to get Addon Name
-$tocFile = Get-ChildItem -Path $RepoRoot -Filter "*.toc" | Select-Object -First 1
+# 2. Find .toc to get Addon Name (prefer base TOC without flavor suffix)
+$allTocs = Get-ChildItem -Path $RepoRoot -Filter "*.toc"
+$tocFile = ($allTocs | Where-Object { $_.BaseName -notmatch '_' } | Select-Object -First 1)
+if (-not $tocFile) {
+    $tocFile = $allTocs | Select-Object -First 1
+}
 if (-not $tocFile) {
     Write-Host "Error: No .toc file found in $RepoRoot" -ForegroundColor Red
     exit 1

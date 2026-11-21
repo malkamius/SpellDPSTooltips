@@ -1,8 +1,12 @@
 # PowerShell script to deploy the addon to the WoW directory
 $SourceDir = $PSScriptRoot
 
-# Find the .toc file in the directory
-$tocFile = Get-ChildItem -Path $SourceDir -Filter "*.toc" | Select-Object -First 1
+# Find the .toc file in the directory (prefer base TOC without flavor suffix)
+$allTocs = Get-ChildItem -Path $SourceDir -Filter "*.toc"
+$tocFile = ($allTocs | Where-Object { $_.BaseName -notmatch '_' } | Select-Object -First 1)
+if (-not $tocFile) {
+    $tocFile = $allTocs | Select-Object -First 1
+}
 
 if (-not $tocFile) {
     Write-Host "Error: No .toc file found in $SourceDir" -ForegroundColor Red
